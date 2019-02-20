@@ -7,12 +7,13 @@ import org.apache.kafka.clients.producer.RecordMetadata;
 
 import java.io.IOException;
 import java.util.Properties;
+import java.util.concurrent.TimeUnit;
 
-public class Producer {
+public class ProducerWithLoop implements Runnable {
 
     private final KafkaProducer<Integer, String> producer;
 
-    public Producer() {
+    public ProducerWithLoop() {
         Properties properties = new Properties();
         properties.put("bootstrap.servers", KafkaProperties.KAFAKA_BROKER_LIST);
         properties.put("key.serializer", "org.apache.kafka.common.serialization.IntegerSerializer");
@@ -30,11 +31,30 @@ public class Producer {
         });
     }
 
+    @Override
+    public void run() {
+        int messageNo = 0;
+        while (true) {
+            String messageStr = "message-" + messageNo;
+            producer.send(new ProducerRecord<Integer, String>(KafkaProperties.TOPIC, messageNo, messageStr), new Callback() {
+                @Override
+                public void onCompletion(RecordMetadata recordMetadata, Exception e) {
+                    System.out.println("message send to:[" + recordMetadata.partition() + "], offset : [" + recordMetadata.offset() + "]");
+                }
+            });
+            ++messageNo;
+            try {
+                TimeUnit.SECONDS.sleep(1);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
 
     public static void main(String[] args) throws IOException {
-        Producer producer = new Producer();
-        producer.sendMsg();
-        System.in.read();
+        ProducerWithLoop producer = new ProducerWithLoop();
+        new Thread(producer).start();
     }
 
 }
